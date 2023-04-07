@@ -1,0 +1,34 @@
+<div class="grid">
+    <div class="itemsList">
+        <ng-container *ngFor="let product of products$ | async">
+            <div class="container grid">
+                <p>{{ product.name }}, {{ product.price }} PLN</p>
+                <button (click)="addProductToCheckout(product)">Add</button>
+            </div>
+        </ng-container>
+    </div>
+    <div class="card container">
+        <h1>Items in checkout</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col">Price</th>
+                    <th scope="col">Quantity</th>
+                </tr>
+            </thead>
+            <tbody>
+                <ng-container *ngFor="let item of productsInCheckout$ | async">
+                    <tr>
+                        <td>{{ item.name }}</td>
+                        <td>{{ item.price }}</td>
+                        <td>{{ item.quantity }}</td>
+                    </tr>
+                </ng-container>
+            </tbody>
+            <ng-container *ngIf="productsSum$ | async as productsSum">
+                <h2>Total: {{ productsSum }} PLN</h2>
+            </ng-container>
+        </table>
+    </div>
+</div>
