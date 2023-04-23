@@ -1,0 +1,100 @@
+service: slspubsub
+frameworkVersion: "3"
+useDotenv: true
+plugins:
+    - serverless-offline
+    - serverless-iam-roles-per-function
+    - serverless-dotenv-plugin
+
+provider:
+    name: aws
+    runtime: nodejs18.x
+    environment:
+        API_URL: !Ref WebsocketsApi
+        PGHOST: !GetAtt productsTable.Endpoint.Address
+
+functions:
+    websocket:
+        handler: handler.websocket
+        iamRoleStatements:
+            - Effect: "Allow"
+              Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Scan
+                  - dynamodb:Find
+              Resource: "*"
+        events:
+            - websocket:
+                  route: $connect
+            - websocket:
+                  route: $disconnect
+            - websocket:
+                  route: $default
+    onTableChange:
+        handler: handler.onTableChange
+        iamRoleStatements:
+            - Effect: "Allow"
+              Action:
+                  - dynamodb:Scan
+              Resource: "*"
+            - Effect: "Allow"
+              Action: "execute-api:ManageConnections"
+              Resource: "*"
+    getProducts:
+        handler: handler.getProducts
+        events:
+            - httpApi:
+                  cors: true
+                  method: GET
+                  path: /products/get
+
+resources:
+    Resources:
+        productsTable:
+            Type: AWS::RDS::DBInstance
+            Properties:
+                Engine: "postgres"
+                DBInstanceClass: "db.t3.micro"
+                AllocatedStorage: "20"
+                MaxAllocatedStorage: 200
+                MasterUsername: ${env:PGUSER}
+                MasterUserPassword: ${env:PGPASSWORD}
+                DBName: ${env:PGDATABASE}
+                AssociatedRoles:
+                    - FeatureName: Lambda
+                      RoleArn: !GetAtt dbInstanceRole.Arn
+        dbInstanceRole:
+            Type: AWS::IAM::Role
+            Properties:
+                AssumeRolePolicyDocument:
+                    Version: "2012-10-17"
+                    Statement:
+                        - Effect: Allow
+                          Principal:
+                              Service: rds.amazonaws.com
+                          Action:
+                              - sts:AssumeRole
+                Policies:
+                    - PolicyName: "db"
+                      PolicyDocument:
+                          Version: "2012-10-17"
+                          Statement:
+                              - Effect: "Allow"
+                                Action:
+                                    - lambda:InvokeFunction
+                                Resource: "*"
+        connectionsTable:
+            Type: AWS::DynamoDB::Table
+            Properties:
+                TableName: connectionsTable
+                AttributeDefinitions:
+                    - AttributeName: connectionId
+                      AttributeType: S
+                KeySchema:
+                    - AttributeName: connectionId
+                      KeyType: HASH
+                ProvisionedThroughput:
+                    ReadCapacityUnits: 1
+                    WriteCapacityUnits: 1

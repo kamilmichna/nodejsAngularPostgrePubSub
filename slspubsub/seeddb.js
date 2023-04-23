@@ -1,7 +1,8 @@
-import pg from "pg";
-
-export async function seedDb(pgClient) {
+const pg = require("pg");
+require("dotenv").config();
+async function seedDb(pgClient) {
     try {
+        console.log("STARTED SEEDING");
         await pgClient.query(`
         CREATE TABLE IF NOT EXISTS Products (
             id serial primary key,
@@ -34,26 +35,13 @@ export async function seedDb(pgClient) {
               ('Portable Outdoor Camping Chair', 27);
             `);
         }
-
-        setUpTriggers(pgClient);
+        console.log("SEEDING ENDED");
     } catch (err) {
         console.error(err);
     }
 }
 
-export async function getAllProductsFromDb(pgClient) {
-    let res = null;
-    try {
-        res = await pgClient.query(`
-            SELECT * FROM Products ORDER BY id ASC;
-        `);
-    } catch (err) {
-        console.error(err);
-    }
-    return res.rows;
-}
-
-export function createPgConnection() {
+function createPgConnection() {
     const Client = pg.Client;
     return new Client();
 }
@@ -70,7 +58,7 @@ async function setUpTriggers(pgClient) {
             returns trigger 
             as $$
                 begin 
-                    perform pg_notify('pubchanel', '');
+                perform aws_lambda.invoke(aws_commons.create_lambda_function_arn('${process.env.lambda}', 'us-east-1'), '{"body": "Hello from Postgres!"}'::json );
                     return new;
                 end
             $$ language plpgsql VOLATILE
@@ -85,3 +73,21 @@ async function setUpTriggers(pgClient) {
         console.error(e);
     }
 }
+
+async function installExtensions(pgClient) {
+    try {
+        await pgClient.query(`CREATE EXTENSION IF NOT EXISTS aws_lambda CASCADE;
+        `);
+    } catch (err) {
+        console.log(err);
+    }
+}
+
+(async function () {
+    const conn = createPgConnection();
+    await conn.connect();
+    await setUpTriggers(conn);
+    await seedDb(conn);
+    await installExtensions(conn);
+    console.log("END");
+})();

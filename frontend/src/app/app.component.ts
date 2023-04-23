@@ -25,7 +25,7 @@ type ICheckoutProduct = IProduct & { quantity: number };
 })
 export class AppComponent {
     products$: Observable<IProduct[]> | undefined;
-    SSEEventSource = new EventSource('http://localhost:3000/stream');
+    WebSocketEventSource = new WebSocket('websocketurl');
     refreshDataObs$ = new BehaviorSubject(true);
 
     productsInCheckout$: Subject<ICheckoutProduct[]> = new Subject();
@@ -37,7 +37,7 @@ export class AppComponent {
         this.products$ = this.refreshDataObs$.pipe(
             switchMap(() =>
                 this.http
-                    .get(`http://localhost:3000`)
+                    .get(`getProducts url`)
                     .pipe(tap((data: any) => console.log(data)))
             ),
             tap((items) => {
@@ -46,7 +46,8 @@ export class AppComponent {
             share()
         );
 
-        this.SSEEventSource.addEventListener('message', (message) => {
+        this.WebSocketEventSource.addEventListener('message', (message) => {
+            alert('WEBSOCKET RUN');
             this.refreshDataObs$.next(true);
         });
 
